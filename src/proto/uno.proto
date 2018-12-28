@@ -1,0 +1,31 @@
+syntax = "proto2";
+
+package uno;
+
+message Exchang
+{
+	enum CmdList {
+		LOGIN = 0;	
+		LOGOUT = 1;
+		ERROR = 2;
+	}
+
+	optional CmdList cmd = 1;
+	optional string mes = 2;
+}
+
+message LogIn
+{
+	optional string account = 1;
+	optional string passwd = 2;
+}
+
+message Error
+{
+	enum ErrorCode{
+		CORRECT = 0;
+		ACCOUNT_OR_PASSWD_ERROR = 1;
+	}
+
+	optional ErrorCode code = 1;
+}
