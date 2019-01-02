@@ -8,7 +8,44 @@
 #include "log/log.h"
 #include "proto/uno.pb.h"
 
-class Player {
+struct SendMessageStruct
+{
+    enum Status
+    {
+        kSendLength,
+        kSendMessage,
+    };
+
+    int send_len_ = 0;
+    int max_send_len_ = 0;
+    uint32_t length_ = 0;
+    std::string message_;
+    Status status_ = kSendLength;
+
+    SendMessageStruct() = default;
+
+    SendMessageStruct(uint32_t length, const std::string &message)
+        : length_(length), message_(message)
+    {
+    }
+
+    void SetSendLength()
+    {
+        send_len_ = 0;
+        max_send_len_ = 4;
+        status_ = kSendLength;
+    }
+
+    void SetSendMessage()
+    {
+        send_len_ = 0;
+        max_send_len_ = message_.length();
+        status_ = kSendMessage;
+    }
+};
+
+class Player
+{
 public:
     enum Status
     {
@@ -40,7 +77,7 @@ public:
 
 public:
     Player() = default;
-    
+
     Player(int fd, Status status) :
         socket_fd_(fd), status_(status)
     {
@@ -55,6 +92,8 @@ public:
 
     void SendMessage();
 
+    int CheckSendLen(int send_len, SendMessageStruct &message);
+
     template <typename T>
     void AddSendMessage(uno::Exchang_CmdList cmd, const T &pb_message);
 
@@ -68,7 +107,8 @@ private:
     std::string         name_;
     int                 score_ = 0;
     Status              status_ = kInit;
-    std::queue<std::string> send_message_;
+    std::queue<SendMessageStruct> wait_send_message_;
+    bool                send_buff_full_ = false;
 };
 
 template <typename T>
@@ -83,9 +123,13 @@ void Player::AddSendMessage(uno::Exchang_CmdList cmd, const T &pb_message)
 
     pb_string.clear();
     pb_exchange.SerializeToString(&pb_string);
-    send_message_.push(pb_string);
 
-    SetSocketFdReadAndWrite();
+    SendMessageStruct message(pb_string.length(), pb_string);
+    message.SetSendLength();
+
+    wait_send_message_.push(message);
+
+    SendMessage();
 }
 
 #endif

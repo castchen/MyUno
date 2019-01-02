@@ -77,19 +77,80 @@ int Player::LogIn(const std::string &message)
 
 void Player::SendMessage()
 {
-    if (!send_message_.empty())
+    int send_len = 0;
+    while (!wait_send_message_.empty())
     {
-        auto message = send_message_.front();
-        uint32_t length = message.length();
-        write(socket_fd(), &length, sizeof(uint32_t));
-        write(socket_fd(), message.c_str(), length);
-        send_message_.pop();
+        SendMessageStruct &message = wait_send_message_.front();
+        if (message.status_ == SendMessageStruct::kSendLength)
+        {
+            send_len = write(socket_fd(), &message.length_ + message.send_len_, message.max_send_len_ - message.send_len_);
+            if (CheckSendLen(send_len, message))
+            {
+                break;
+            }
+
+            message.SetSendMessage();
+        }
+
+        if (message.status_ == SendMessageStruct::kSendMessage)
+        {
+            send_len = write(socket_fd(), message.message_.c_str() + message.send_len_, message.max_send_len_ - message.send_len_);
+            if (CheckSendLen(send_len, message))
+            {
+                break;
+            }
+
+            wait_send_message_.pop();
+        }
     }
 
-    if (send_message_.empty())
+    if (!wait_send_message_.empty())
     {
-        SetSocketFdRead();
+        if (!send_buff_full_)
+        {
+            SetSocketFdReadAndWrite();
+            send_buff_full_ = true;
+        }
     }
+    else
+    {
+        if (send_buff_full_)
+        {
+            SetSocketFdRead();
+            send_buff_full_ = false;
+        }
+    }
+}
+
+int Player::CheckSendLen(int send_len, SendMessageStruct &message)
+{
+    if (send_len < 0)
+    {
+        if (errno == EAGAIN)
+        {
+            kLog.Error("SendBuf is full. uid:%d errno:%d status:%d \n", uid(), errno, message.status_);
+        }
+        else
+        {
+            kLog.Error("SendLen Error. uid:%d errno:%d status:%d \n", uid(), errno, message.status_);
+        }
+        return -1;
+    }
+
+    message.send_len_ += send_len;
+
+    if (message.send_len_ > message.max_send_len_)
+    {
+        kLog.Error("Player Send bigger max. len:%d max:%d status:%d\n", message.send_len_, message.max_send_len_, message.status_);
+        return -2;
+    }
+    else if (message.send_len_ < message.max_send_len_)
+    {
+        kLog.Error("Player Send less max. len:%d max:%d status:%d\n", message.send_len_, message.max_send_len_, message.status_);
+        return -3;
+    }
+
+    return 0;
 }
 
 void Player::SetSocketFdReadAndWrite()

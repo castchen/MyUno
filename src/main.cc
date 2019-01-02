@@ -13,7 +13,7 @@
 
 constexpr int kBufSize = 1024 * 10;
 
-struct RecvMessage
+struct RecvMessageStruct
 {
     enum Status
     {
@@ -53,10 +53,10 @@ struct RecvMessage
 void SetSocket(int fd);
 void SetNonblockingMode(int fd);
 void ForceLogOutPlayer(int clnt_sock);
-int CheckRecvFromClient(int recv_len, int clnt_sock, RecvMessage &recv_message, 
-    char *buf, std::map<int, RecvMessage> &fd_message);
+int CheckRecvFromClient(int recv_len, int clnt_sock, RecvMessageStruct &recv_message, 
+    char *buf, std::map<int, RecvMessageStruct> &fd_message);
 void ConnectNewPlayer(int serv_sock);
-void ReadFd(int clnt_sock, std::map<int, RecvMessage> &fd_message);
+void ReadFd(int clnt_sock, std::map<int, RecvMessageStruct> &fd_message);
 void WriteFd(int clnt_sock);
 
 Log kLog;
@@ -109,7 +109,7 @@ int main()
     epoll_ctl(kGame.ep_fd(), EPOLL_CTL_ADD, serv_sock, &event);
 
     int event_cnt = 0;
-    std::map<int, RecvMessage> fd_message;
+    std::map<int, RecvMessageStruct> fd_message;
     while (1)
     {
         event_cnt = epoll_wait(kGame.ep_fd(), ep_events, kEpSize, -1);
@@ -157,8 +157,8 @@ void SetSocket(int fd)
     setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (void*)&option, optlen);
 }
 
-int CheckRecvFromClient(int recv_len, int clnt_sock, RecvMessage &recv_message,
-    char *buf, std::map<int, RecvMessage> &fd_message)
+int CheckRecvFromClient(int recv_len, int clnt_sock, RecvMessageStruct &recv_message,
+    char *buf, std::map<int, RecvMessageStruct> &fd_message)
 {
     if (recv_len == 0)
     {
@@ -234,11 +234,11 @@ void ConnectNewPlayer(int serv_sock)
     }
 }
 
-void ReadFd(int clnt_sock, std::map<int, RecvMessage> &fd_message)
+void ReadFd(int clnt_sock, std::map<int, RecvMessageStruct> &fd_message)
 {
     char buf[kBufSize];
     int recv_len = 0;
-    RecvMessage recv_message;
+    RecvMessageStruct recv_message;
 
     while (1)
     {
@@ -251,7 +251,7 @@ void ReadFd(int clnt_sock, std::map<int, RecvMessage> &fd_message)
             recv_message = fd_message[clnt_sock];
         }
 
-        if (recv_message.status_ == RecvMessage::kRecvLength)
+        if (recv_message.status_ == RecvMessageStruct::kRecvLength)
         {
             recv_len = read(clnt_sock, buf, recv_message.max_recv_len_ - recv_message.recv_len_);
             buf[recv_len] = '\0';
@@ -275,7 +275,7 @@ void ReadFd(int clnt_sock, std::map<int, RecvMessage> &fd_message)
 
         kLog.Debug("fd:%d cur_length: %d total_length: %d\n", clnt_sock, recv_message.recv_len_, recv_message.max_recv_len_);
 
-        if (recv_message.status_ == RecvMessage::kRecvMessage)
+        if (recv_message.status_ == RecvMessageStruct::kRecvMessage)
         {
             recv_len = read(clnt_sock, buf, recv_message.max_recv_len_ - recv_message.recv_len_);
             buf[recv_len] = '\0';
