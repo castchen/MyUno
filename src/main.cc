@@ -11,7 +11,7 @@
 #include "game.h"
 #include "./proto/uno.pb.h"
 
-constexpr int kBufSize = 1024 * 10;
+constexpr int kBufSize = 1024 * 30;
 
 struct RecvMessageStruct
 {

@@ -124,6 +124,12 @@ int Game::ExcuteCmd(int fd, int cmd, const std::string &message)
         pb_error.set_code(error_no());
         player->AddSendMessage(uno::Exchang_CmdList_ERROR, pb_error);
     }
+    else
+    {
+        uno::Error pb_error;
+        pb_error.set_code(uno::Error_ErrorCode_CORRECT);
+        player->AddSendMessage(uno::Exchang_CmdList_ERROR, pb_error);
+    }
 
     return 0;
 }

@@ -45,12 +45,14 @@ int MysqlDb::GetAccountInfo(std::string account, DbAccountInfo &info)
             MYSQL_ROW row = mysql_fetch_row(result);
             if (row <= 0)
             {
+				mysql_free_result(result);
                 return -2;
             }
             info.uid_ = atoi(row[0]);
             info.account_ = row[1];
             info.passwd_ = row[2];
 
+			mysql_free_result(result);
             return 0;
         }
         else
@@ -58,8 +60,9 @@ int MysqlDb::GetAccountInfo(std::string account, DbAccountInfo &info)
             return -3;
         }
 
-        mysql_free_result(result);
     }
+
+	return 0;
 }
 
 int MysqlDb::GetInfoInfo(int uid, DbInfoInfo &info)
@@ -78,12 +81,14 @@ int MysqlDb::GetInfoInfo(int uid, DbInfoInfo &info)
             MYSQL_ROW row = mysql_fetch_row(result);
             if (row <= 0)
             {
+				mysql_free_result(result);
                 return -2;
             }
             info.uid_ = atoi(row[0]);
             info.name_ = row[1];
             info.score_ = atoi(row[2]);
 
+			mysql_free_result(result);
             return 0;
         }
         else
@@ -91,7 +96,8 @@ int MysqlDb::GetInfoInfo(int uid, DbInfoInfo &info)
             return -3;
         }
 
-        mysql_free_result(result);
     }
+
+	return 0;
 }
 
