@@ -10,53 +10,15 @@
 #include "log/log.h"
 #include "game.h"
 #include "./proto/uno.pb.h"
-
-constexpr int kBufSize = 1024 * 30;
-
-struct RecvMessageStruct
-{
-    enum Status
-    {
-        kRecvLength,
-        kRecvMessage,
-    };
-    int recv_len_ = 0;
-    int max_recv_len_ = 0;
-    char message_[kBufSize];
-    Status status_ = kRecvLength;
-
-    void Reset()
-    {
-        recv_len_ = 0;
-        max_recv_len_ = 0;
-        memset(&message_, 0, sizeof(message_));
-        status_ = kRecvLength;
-    }
-
-    void SetRecvLength()
-    {
-        recv_len_ = 0;
-        max_recv_len_ = 4;
-        memset(&message_, 0, sizeof(message_));
-        status_ = kRecvLength;
-    }
-
-    void SetRecvMessage(int length)
-    {
-        recv_len_ = 0;
-        max_recv_len_ = length;
-        memset(&message_, 0, sizeof(message_));
-        status_ = kRecvMessage;
-    }
-};
+#include "player.h"
+#include "./web_socket/WebSocket.h"
 
 void SetSocket(int fd);
 void SetNonblockingMode(int fd);
 void ForceLogOutPlayer(int clnt_sock);
-int CheckRecvFromClient(int recv_len, int clnt_sock, RecvMessageStruct &recv_message, 
-    char *buf, std::map<int, RecvMessageStruct> &fd_message);
+int CheckRecvFromClient(int recv_len, int clnt_sock);
 void ConnectNewPlayer(int serv_sock);
-void ReadFd(int clnt_sock, std::map<int, RecvMessageStruct> &fd_message);
+void ReadFd(int clnt_sock);
 void WriteFd(int clnt_sock);
 
 Log kLog;
@@ -85,7 +47,7 @@ int main()
     memset(&serv_adr, 0, sizeof(serv_adr));
     serv_adr.sin_family = AF_INET;
     serv_adr.sin_addr.s_addr = htonl(INADDR_ANY);
-    serv_adr.sin_port = htons(6666);
+    serv_adr.sin_port = htons(443);
 
     if (bind(serv_sock, (struct sockaddr *)&serv_adr, sizeof(serv_adr)) == -1)
     {
@@ -109,7 +71,6 @@ int main()
     epoll_ctl(kGame.ep_fd(), EPOLL_CTL_ADD, serv_sock, &event);
 
     int event_cnt = 0;
-    std::map<int, RecvMessageStruct> fd_message;
     while (1)
     {
         event_cnt = epoll_wait(kGame.ep_fd(), ep_events, kEpSize, -1);
@@ -128,7 +89,7 @@ int main()
             {
                 if (ep_events[i].events & EPOLLIN)
                 {
-                    ReadFd(ep_events[i].data.fd, fd_message);
+                    ReadFd(ep_events[i].data.fd);
                 }
                 if (ep_events[i].events & EPOLLOUT)
                 {
@@ -157,8 +118,7 @@ void SetSocket(int fd)
     setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (void*)&option, optlen);
 }
 
-int CheckRecvFromClient(int recv_len, int clnt_sock, RecvMessageStruct &recv_message,
-    char *buf, std::map<int, RecvMessageStruct> &fd_message)
+int CheckRecvFromClient(int recv_len, int clnt_sock)
 {
     if (recv_len == 0)
     {
@@ -169,24 +129,14 @@ int CheckRecvFromClient(int recv_len, int clnt_sock, RecvMessageStruct &recv_mes
     {
         if (errno == EAGAIN)
         {
+            return -2;
         }
         else
         {
             kLog.Error("recv_len error, auto logout. errno:%d\n", errno);
             ForceLogOutPlayer(clnt_sock);
-            return -2;
+            return -3;
         }
-    }
-    else
-    {
-        memcpy(recv_message.message_ + recv_message.recv_len_, buf, recv_len);
-        recv_message.recv_len_ += recv_len;
-    }
-
-    if (recv_message.recv_len_ < recv_message.max_recv_len_)
-    {
-        fd_message[clnt_sock] = recv_message;
-        return -3;
     }
 
     return 0;
@@ -234,65 +184,77 @@ void ConnectNewPlayer(int serv_sock)
     }
 }
 
-void ReadFd(int clnt_sock, std::map<int, RecvMessageStruct> &fd_message)
+void ReadFd(int clnt_sock)
 {
-    char buf[kBufSize];
+    auto player = kGame.GetPlayByFd(clnt_sock);
+    if (player == nullptr)
+    {
+        kLog.Error("no this player. clnt_sock:%d\n", clnt_sock);
+        return;
+    }
+
     int recv_len = 0;
-    RecvMessageStruct recv_message;
+    RecvMessageStruct* recv_message = player->mutable_recv_net_msg();
+    Cast::WebSocket* ws = player->mutable_ws();
 
     while (1)
     {
-        if (fd_message.find(clnt_sock) == fd_message.end())
+        recv_len = read(clnt_sock, recv_message->message_ + recv_message->recv_len_, recv_message->max_recv_len_ - recv_message->recv_len_);
+        if (CheckRecvFromClient(recv_len, clnt_sock))
         {
-            recv_message.SetRecvLength();
+            break;
         }
-        else
+        recv_message->recv_len_ += recv_len;
+        recv_message->message_[recv_message->recv_len_] = '\0';
+
+        if (player->status() == Player::Status::kConnected)
         {
-            recv_message = fd_message[clnt_sock];
-        }
-
-        if (recv_message.status_ == RecvMessageStruct::kRecvLength)
-        {
-            recv_len = read(clnt_sock, buf, recv_message.max_recv_len_ - recv_message.recv_len_);
-            buf[recv_len] = '\0';
-
-            if (CheckRecvFromClient(recv_len, clnt_sock, recv_message, buf, fd_message))
+            if (ws->UnpackageHandshake(recv_message->message_, recv_message->recv_len_))
             {
-                break;
-            }
-
-            uint32_t message_len = 0;
-            memcpy(&message_len, recv_message.message_, sizeof(uint32_t));
-            if (message_len >= kBufSize)
-            {
-                kLog.Error("will recv message length too long. len: %d\n", message_len);
                 ForceLogOutPlayer(clnt_sock);
-                break;
+                return;
             }
 
-            recv_message.SetRecvMessage(message_len);
+            std::string ws_str;
+            ws->PackageHandshake(ws_str);
+            write(clnt_sock, ws_str.c_str(), ws_str.length());
+            player->set_status(Player::Status::kHandshake);
+
+            recv_message->Reset();
         }
-
-        kLog.Debug("fd:%d cur_length: %d total_length: %d\n", clnt_sock, recv_message.recv_len_, recv_message.max_recv_len_);
-
-        if (recv_message.status_ == RecvMessageStruct::kRecvMessage)
+        else if (player->status() > Player::Status::kConnected)
         {
-            recv_len = read(clnt_sock, buf, recv_message.max_recv_len_ - recv_message.recv_len_);
-            buf[recv_len] = '\0';
-
-            if (CheckRecvFromClient(recv_len, clnt_sock, recv_message, buf, fd_message))
+            Cast::WebSocket::UnpackageFrameReturn ws_return;
+            if (ws->UnpackageFrame(recv_message->message_, recv_message->recv_len_, ws_return))
             {
                 break;
             }
 
-            uno::Exchang exchang;
-            exchang.ParseFromArray(recv_message.message_, recv_message.max_recv_len_);
-            kGame.ExcuteCmd(clnt_sock, exchang.cmd(), exchang.mes());
-
-            auto iter = fd_message.find(clnt_sock);
-            if (iter != fd_message.end())
+            if (ws_return.m_IsFinal)
             {
-                fd_message.erase(iter);
+                uno::Exchang exchang;
+                if (exchang.ParseFromString(ws_return.m_Str))
+                {
+                    kGame.ExcuteCmd(clnt_sock, exchang.cmd(), exchang.mes());
+                }
+                else
+                {
+                    kLog.Error("uno::Exchang parse error.\n");
+                }
+            }
+            else
+            {
+                kLog.Error("frame is not final.\n");
+            }
+
+            if (ws_return.m_FrameLen < recv_message->recv_len_)
+            {
+                memcpy(recv_message->message_, recv_message->message_ + ws_return.m_FrameLen, recv_message->recv_len_ - ws_return.m_FrameLen);
+                recv_message->recv_len_ -= ws_return.m_FrameLen;
+            }
+            else
+            {
+                recv_message->Reset();
             }
         }
     }
@@ -304,6 +266,6 @@ void WriteFd(int clnt_sock)
     auto player = kGame.GetPlayByFd(clnt_sock);
     if (player)
     {
-        player->SendMessage();
+        player->SendNetMessage();
     }
 }

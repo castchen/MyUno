@@ -7,40 +7,39 @@
 
 #include "log/log.h"
 #include "proto/uno.pb.h"
+#include "./web_socket/WebSocket.h"
+
+constexpr int kBufSize = 1024 * 30;
+
+struct RecvMessageStruct
+{
+    uint64_t recv_len_ = 0;
+    uint64_t max_recv_len_ = kBufSize - 1;
+    char message_[kBufSize];
+
+    void Reset()
+    {
+        recv_len_ = 0;
+        max_recv_len_ = kBufSize - 1;
+        memset(&message_, 0, sizeof(message_));
+    }
+};
 
 struct SendMessageStruct
 {
-    enum Status
-    {
-        kSendLength,
-        kSendMessage,
-    };
-
-    int send_len_ = 0;
-    int max_send_len_ = 0;
-    uint32_t length_ = 0;
-    std::string message_;
-    Status status_ = kSendLength;
+    uint64_t send_len_ = 0;
+    uint64_t max_send_len_ = 0;
+    char* message_ = nullptr;
 
     SendMessageStruct() = default;
 
-    SendMessageStruct(uint32_t length, const std::string &message)
-        : length_(length), message_(message)
+    ~SendMessageStruct()
     {
-    }
-
-    void SetSendLength()
-    {
-        send_len_ = 0;
-        max_send_len_ = 4;
-        status_ = kSendLength;
-    }
-
-    void SetSendMessage()
-    {
-        send_len_ = 0;
-        max_send_len_ = message_.length();
-        status_ = kSendMessage;
+        if (message_)
+        {
+            delete[] message_;
+            message_ = nullptr;
+        }
     }
 };
 
@@ -51,6 +50,7 @@ public:
     {
         kInit,
         kConnected,
+        kHandshake,
         kHasLogged,
         kInTheGame,
     };
@@ -75,6 +75,10 @@ public:
 
     void set_score(int val) { score_ = val; }
 
+    RecvMessageStruct* mutable_recv_net_msg() { return &recv_net_msg_; }
+
+    Cast::WebSocket* mutable_ws() { return &ws_; }
+
 public:
     Player() = default;
 
@@ -90,7 +94,7 @@ public:
 
     int LogIn(const std::string &message);
 
-    void SendMessage();
+    void SendNetMessage();
 
     int CheckSendLen(int send_len, SendMessageStruct &message);
 
@@ -109,6 +113,8 @@ private:
     Status              status_ = kInit;
     std::queue<SendMessageStruct> wait_send_message_;
     bool                send_buff_full_ = false;
+    RecvMessageStruct   recv_net_msg_;
+    Cast::WebSocket     ws_;
 };
 
 template <typename T>
@@ -124,12 +130,15 @@ void Player::AddSendMessage(uno::Exchang_CmdList cmd, const T &pb_message)
     pb_string.clear();
     pb_exchange.SerializeToString(&pb_string);
 
-    SendMessageStruct message(pb_string.length(), pb_string);
-    message.SetSendLength();
+    SendMessageStruct message;
+    ws_.PackageTextFrame(pb_string, message.message_, message.max_send_len_);
 
-    wait_send_message_.push(message);
+    if (message.message_)
+    {
+        wait_send_message_.push(message);
+    }
 
-    SendMessage();
+    SendNetMessage();
 }
 
 #endif

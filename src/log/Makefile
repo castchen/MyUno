@@ -6,7 +6,7 @@ SOURCE_OBJ = log.o
 
 $(TARGET_LIB): $(SOURCE_OBJ)
 	ar -r $(TARGET_LIB) $(SOURCE_OBJ)
-	mv $(TARGET_LIB) ../lib
+	mv $(TARGET_LIB) ../lib/
 
 %.o: %.cpp %.h
 	$(CXX) -c $(CXXFLAGS) $< -o $@
