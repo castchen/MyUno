@@ -32,7 +32,7 @@ int Player::LogIn(const std::string &message)
         return -1;
     }
 
-    uno::LogIn pb_log_in;
+    uno::pb::ReqLogIn pb_log_in;
     if (!pb_log_in.ParseFromString(message))
     {
         kLog.Error("log in parse error\n");
@@ -43,7 +43,7 @@ int Player::LogIn(const std::string &message)
     if (kGame.GetAccountInfo(pb_log_in.account(), account))
     {
         kLog.Error("account don't find in mysql.\n");
-        kGame.set_error_no(uno::Error_ErrorCode_ACCOUNT_OR_PASSWD_ERROR);
+        kGame.set_error_no(RetCodeList::kAccountOrPasswdError);
         return -4;
     }
    
@@ -53,7 +53,7 @@ int Player::LogIn(const std::string &message)
         if (kGame.GetInfoInfo(account.uid_, info))
         {
             kLog.Error("info don't find in mysql.\n");
-            kGame.set_error_no(uno::Error_ErrorCode_ACCOUNT_OR_PASSWD_ERROR);
+            kGame.set_error_no(RetCodeList::kAccountOrPasswdError);
             return -3;
         }
         else
@@ -63,12 +63,18 @@ int Player::LogIn(const std::string &message)
             set_score(info.score_);
             set_status(kHasLogged);
             kLog.Info("uid: %d name: %s score: %d login success.\n", uid(), name().c_str(), score());
+
+            uno::pb::AckLogIn pb_ack;
+            pb_ack.set_uid(uid());
+            pb_ack.set_name(name());
+            pb_ack.set_score(score());
+            AddSendMessage(CmdList::kLogin, pb_ack);
         }
     }
     else
     {
         kLog.Error("account or passwd error.\n");
-        kGame.set_error_no(uno::Error_ErrorCode_ACCOUNT_OR_PASSWD_ERROR);
+        kGame.set_error_no(RetCodeList::kAccountOrPasswdError);
         return -4;
     }
 

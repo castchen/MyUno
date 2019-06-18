@@ -84,9 +84,9 @@ std::shared_ptr<Player> Game::GetPlayByFd(int fd)
     }
 }
 
-int Game::InitDb()
+int Game::InitDb(const std::string &host, const std::string &user, const std::string &passwd, const std::string &db_name)
 {
-    int ret = mysql_.Init("127.0.0.1", "root", "123456", "uno");
+    int ret = mysql_.Init(host, user, passwd, db_name);
     if (ret)
     {
         kLog.Error("mysql init error. error_no: %d\n", ret);
@@ -109,9 +109,10 @@ int Game::ExcuteCmd(int fd, int cmd, const std::string &message)
     int ret = 0;
     switch (cmd)
     {
-    case uno::Exchang_CmdList_LOGIN:
+    case CmdList::kLogin:
         ret = PlayerLogIn(message, player);
-    case uno::Exchang_CmdList_LOGOUT:
+    case CmdList::kLogout:
+        ret = PlayerLogOut(player);
         break;
     default:
         kLog.Error("cmd:%d invaild.\n", cmd);
@@ -120,15 +121,10 @@ int Game::ExcuteCmd(int fd, int cmd, const std::string &message)
 
     if (ret)
     {
-        uno::Error pb_error;
-        pb_error.set_code(error_no());
-        player->AddSendMessage(uno::Exchang_CmdList_ERROR, pb_error);
-    }
-    else
-    {
-        uno::Error pb_error;
-        pb_error.set_code(uno::Error_ErrorCode_CORRECT);
-        player->AddSendMessage(uno::Exchang_CmdList_ERROR, pb_error);
+        uno::pb::RetCode pb_ret;
+        pb_ret.set_code(error_no());
+        pb_ret.set_cmd(cmd);
+        player->AddSendMessage(CmdList::kRetCode, pb_ret);
     }
 
     return 0;

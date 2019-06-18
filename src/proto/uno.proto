@@ -1,31 +1,28 @@
 syntax = "proto2";
 
-package uno;
+package uno.pb;
 
 message Exchang
 {
-	enum CmdList {
-		LOGIN = 0;	
-		LOGOUT = 1;
-		ERROR = 2;
-	}
-
-	optional CmdList cmd = 1;
+	optional int32 cmd = 1;
 	optional string mes = 2;
 }
 
-message LogIn
+message ReqLogIn
 {
 	optional string account = 1;
 	optional string passwd = 2;
 }
 
-message Error
+message AckLogIn
 {
-	enum ErrorCode{
-		CORRECT = 0;
-		ACCOUNT_OR_PASSWD_ERROR = 1;
-	}
+	optional int32 uid = 1;
+	optional string name = 2;
+	optional int32 score = 3;
+}
 
-	optional ErrorCode code = 1;
+message RetCode
+{
+	optional int32 code = 1;
+	optional int32 cmd = 2;
 }

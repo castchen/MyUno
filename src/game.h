@@ -8,13 +8,14 @@
 #include "table.h"
 #include "mysql_db.h"
 #include "proto/uno.pb.h"
+#include "cmd_list.h"
 
 class Game
 {
 public:
-    uno::Error_ErrorCode error_no() const { return error_no_; }
+    RetCodeList error_no() const { return error_no_; }
 
-    void set_error_no(uno::Error_ErrorCode val) { error_no_ = val; }
+    void set_error_no(RetCodeList val) { error_no_ = val; }
 
     int ep_fd() const { return ep_fd_; }
 
@@ -29,7 +30,7 @@ public:
 
     std::shared_ptr<Player> GetPlayByFd(int fd);
 
-    int InitDb();
+    int InitDb(const std::string &host, const std::string &user, const std::string &passwd, const std::string &db_name);
 
     int ExcuteCmd(int fd, int cmd, const std::string &message);
 
@@ -42,7 +43,7 @@ private:
     std::map<int, std::shared_ptr<Player>> fd_players_;
     std::map<int, std::shared_ptr<Player>> uid_players_;
     MysqlDb mysql_;
-    uno::Error_ErrorCode error_no_ = uno::Error_ErrorCode_CORRECT;
+    RetCodeList error_no_ = RetCodeList::kCorrect;
     int ep_fd_ = 0;
 };
 #endif

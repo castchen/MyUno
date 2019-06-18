@@ -25,7 +25,7 @@ public:
 
     ~MysqlDb();
 
-    int Init(std::string host, std::string user, std::string passwd, std::string db_name);
+    int Init(const std::string &host, const std::string &user, const std::string &passwd, const std::string &db_name);
 
     int GetAccountInfo(std::string account, DbAccountInfo &info);
 

@@ -9,7 +9,7 @@ MYSQL_CONFIG = $(shell mysql_config --libs)
 
 $(TARGET_BIN): $(SOURCE_OBJ)
 	g++ -o $@ $(SOURCE_OBJ) $(LIBS) $(MYSQL_CONFIG)  
-	#mv $(TARGET_BIN) ../
+	mv $(TARGET_BIN) ../
 
 %.o: %.cpp
 	$(CXX) -c $(CXXFLAGS) $< -o $@

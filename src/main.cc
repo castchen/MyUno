@@ -6,12 +6,14 @@
 #include <string.h>
 #include <memory>
 #include <unistd.h>
+#include <fstream>
 
 #include "log/log.h"
 #include "game.h"
 #include "./proto/uno.pb.h"
 #include "player.h"
 #include "./web_socket/WebSocket.h"
+#include "third/json.hpp"
 
 void SetSocket(int fd);
 void SetNonblockingMode(int fd);
@@ -26,14 +28,34 @@ Game kGame;
 
 int main()
 {
-    kLog.set_log_level(Log::LOG_DEBUG);
-    kLog.set_file_name("./log/uno.log");
+    std::ifstream uno_conf_file("./conf/uno_conf.json");
+    nlohmann::json uno_conf;
+    uno_conf_file >> uno_conf;
+    
+    if (uno_conf["log"]["level"].is_null() || uno_conf["log"]["file"].is_null())
+    {
+        kLog.Error("log conf error.\n");
+        return -1;
+    }
+    kLog.set_log_level(uno_conf["log"]["level"]);
+    kLog.set_file_name(uno_conf["log"]["file"]);
 
-    if (kGame.InitDb())
+    if (uno_conf["mysql"]["ip"].is_null() || uno_conf["mysql"]["account"].is_null() ||
+        uno_conf["mysql"]["passwd"].is_null() || uno_conf["mysql"]["db"].is_null())
+    {
+        kLog.Error("mysql conf error.\n");
+        return -1;
+    }
+    if (kGame.InitDb(uno_conf["mysql"]["ip"], uno_conf["mysql"]["account"], uno_conf["mysql"]["passwd"], uno_conf["mysql"]["db"]))
     {
         return 0;
     }
 
+    if (!uno_conf["port"].is_number_unsigned())
+    {
+        kLog.Error("port conf error.\n");
+        return -1;
+    }
     int serv_sock = socket(PF_INET, SOCK_STREAM, 0);
     if (serv_sock == -1)
     {
@@ -47,7 +69,7 @@ int main()
     memset(&serv_adr, 0, sizeof(serv_adr));
     serv_adr.sin_family = AF_INET;
     serv_adr.sin_addr.s_addr = htonl(INADDR_ANY);
-    serv_adr.sin_port = htons(443);
+    serv_adr.sin_port = htons(uno_conf["port"]);
 
     if (bind(serv_sock, (struct sockaddr *)&serv_adr, sizeof(serv_adr)) == -1)
     {
@@ -232,7 +254,7 @@ void ReadFd(int clnt_sock)
 
             if (ws_return.m_IsFinal)
             {
-                uno::Exchang exchang;
+                uno::pb::Exchang exchang;
                 if (exchang.ParseFromString(ws_return.m_Str))
                 {
                     kGame.ExcuteCmd(clnt_sock, exchang.cmd(), exchang.mes());

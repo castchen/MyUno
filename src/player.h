@@ -8,6 +8,7 @@
 #include "log/log.h"
 #include "proto/uno.pb.h"
 #include "./web_socket/WebSocket.h"
+#include "cmd_list.h"
 
 constexpr int kBufSize = 1024 * 30;
 
@@ -98,8 +99,7 @@ public:
 
     int CheckSendLen(int send_len, SendMessageStruct &message);
 
-    template <typename T>
-    void AddSendMessage(uno::Exchang_CmdList cmd, const T &pb_message);
+    template <typename T> void AddSendMessage(CmdList cmd, const T &pb_message);
 
     void SetSocketFdReadAndWrite();
 
@@ -117,13 +117,12 @@ private:
     Cast::WebSocket     ws_;
 };
 
-template <typename T>
-void Player::AddSendMessage(uno::Exchang_CmdList cmd, const T &pb_message)
+template <typename T> void Player::AddSendMessage(CmdList cmd, const T &pb_message)
 {
     std::string pb_string;
     pb_message.SerializeToString(&pb_string);
 
-    uno::Exchang pb_exchange;
+    uno::pb::Exchang pb_exchange;
     pb_exchange.set_cmd(cmd);
     pb_exchange.set_mes(pb_string);
 

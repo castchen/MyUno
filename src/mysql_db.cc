@@ -13,7 +13,7 @@ MysqlDb::~MysqlDb()
     }
 }
 
-int MysqlDb::Init(std::string host, std::string user, std::string passwd, std::string db_name)
+int MysqlDb::Init(const std::string &host, const std::string &user, const std::string &passwd, const std::string &db_name)
 {
     mysql_ = mysql_init(NULL);
     if (mysql_ == NULL)
@@ -21,10 +21,9 @@ int MysqlDb::Init(std::string host, std::string user, std::string passwd, std::s
         return -1;
     }
 
-    mysql_real_connect(mysql_, host.c_str(), user.c_str(), passwd.c_str(), db_name.c_str(), 0, NULL, 0);
-    if (mysql_ == NULL)
+    if(mysql_real_connect(mysql_, host.c_str(), user.c_str(), passwd.c_str(), db_name.c_str(), 0, NULL, 0) == NULL)
     {
-        return -2;
+        return mysql_errno(mysql_);
     }
 
     return 0;
