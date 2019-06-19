@@ -109,9 +109,9 @@ int Game::ExcuteCmd(int fd, int cmd, const std::string &message)
     int ret = 0;
     switch (cmd)
     {
-    case CmdList::kLogin:
+    case CmdList::kCmdLogin:
         ret = PlayerLogIn(message, player);
-    case CmdList::kLogout:
+    case CmdList::kCmdLogout:
         ret = PlayerLogOut(player);
         break;
     default:
@@ -124,7 +124,7 @@ int Game::ExcuteCmd(int fd, int cmd, const std::string &message)
         uno::pb::RetCode pb_ret;
         pb_ret.set_code(error_no());
         pb_ret.set_cmd(cmd);
-        player->AddSendMessage(CmdList::kRetCode, pb_ret);
+        player->AddSendMessage(CmdList::kCmdRetCode, pb_ret);
     }
 
     return 0;

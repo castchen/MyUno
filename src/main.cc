@@ -92,6 +92,7 @@ int main()
     event.data.fd = serv_sock;
     epoll_ctl(kGame.ep_fd(), EPOLL_CTL_ADD, serv_sock, &event);
 
+    kLog.Info("game start!\n");
     int event_cnt = 0;
     while (1)
     {

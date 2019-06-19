@@ -43,7 +43,7 @@ private:
     std::map<int, std::shared_ptr<Player>> fd_players_;
     std::map<int, std::shared_ptr<Player>> uid_players_;
     MysqlDb mysql_;
-    RetCodeList error_no_ = RetCodeList::kCorrect;
+    RetCodeList error_no_ = RetCodeList::kRetCodeCorrect;
     int ep_fd_ = 0;
 };
 #endif

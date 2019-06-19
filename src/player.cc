@@ -43,7 +43,7 @@ int Player::LogIn(const std::string &message)
     if (kGame.GetAccountInfo(pb_log_in.account(), account))
     {
         kLog.Error("account don't find in mysql.\n");
-        kGame.set_error_no(RetCodeList::kAccountOrPasswdError);
+        kGame.set_error_no(RetCodeList::kRetCodeAccountOrPasswdError);
         return -4;
     }
    
@@ -53,7 +53,7 @@ int Player::LogIn(const std::string &message)
         if (kGame.GetInfoInfo(account.uid_, info))
         {
             kLog.Error("info don't find in mysql.\n");
-            kGame.set_error_no(RetCodeList::kAccountOrPasswdError);
+            kGame.set_error_no(RetCodeList::kRetCodeAccountOrPasswdError);
             return -3;
         }
         else
@@ -68,13 +68,13 @@ int Player::LogIn(const std::string &message)
             pb_ack.set_uid(uid());
             pb_ack.set_name(name());
             pb_ack.set_score(score());
-            AddSendMessage(CmdList::kLogin, pb_ack);
+            AddSendMessage(CmdList::kCmdLogin, pb_ack);
         }
     }
     else
     {
         kLog.Error("account or passwd error.\n");
-        kGame.set_error_no(RetCodeList::kAccountOrPasswdError);
+        kGame.set_error_no(RetCodeList::kRetCodeAccountOrPasswdError);
         return -4;
     }
 

@@ -1,0 +1,13 @@
+{
+  "port": 443,
+  "mysql": {
+    "ip": "127.0.0.1",
+    "account": "root",
+    "passwd": "123456",
+    "db": "uno"
+  },
+  "log": {
+    "file": "./log/uno.log",
+    "level":  1
+  }
+}

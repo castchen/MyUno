@@ -3,15 +3,15 @@
 
 enum CmdList
 {
-    kRetCode = 1000,
-    kLogin = 1001,
-    kLogout = 1002,
+    kCmdRetCode = 1000,
+    kCmdLogin = 1001,
+    kCmdLogout = 1002,
 };
 
 enum RetCodeList
 {
-    kCorrect = 0,
-    kAccountOrPasswdError = 1,
+    kRetCodeCorrect = 0,
+    kRetCodeAccountOrPasswdError = 1,
 };
 
 #endif
